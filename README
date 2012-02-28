@@ -1,0 +1,155 @@
+= Interplay
+
+Interplay is a Ruby gem to register interactions and scoring interactions between users.
+
+== Install
+
+  $ TBD
+  
+== Usage
+
+=== Define Interactions
+
+Create an Bond model and define the interactions and the fields you would like to cache within the interaction.
+
+An interaction consists of an actor, a verb, an object, a target and one or more options. 
+
+  class Bond < ActiveRecord::Base
+    include Interplay::Connector
+
+    store :options
+
+    interaction :event_activate do
+      actor      :Space
+      act_object :Event
+      act_target :Space
+    end
+
+    interaction :send_email do
+      actor      :Space
+      act_target :Space
+      option     :from_email
+      option     :to_email
+    end
+  
+    interaction :follow_my_space do
+      actor      :Space
+      act_target :Space
+    end
+
+    interaction :unfollow_my_space do
+      actor      :Space
+      act_target :Space
+      reverses   :follow_my_space
+    end
+
+  end
+
+The interaction verb is implied from the interaction name, in the above example the verb is :event_activate
+
+The act_object may be the entity performing the interaction, or the entity on which the interaction was performed.
+e.g John(actor) shared a video(act_object)
+
+The act_target is the object that the verb is enacted on.
+e.g. Geraldine(actor) posted a photo(act_object) to her album(act_target)
+
+This is based on the Activity Streams 1.0 specification (http://activitystrea.ms)
+
+
+== Scoring
+
+One record is created in the database for every [verb,actor,act_object,act_target] combination. Every time an  interaction happens a field 'increases' and 'score' is increased by one. 
+
+However, if an interaction is declared with the 'reverses' keyword it will modify the verb specified by 'reverses' (e.g in the example above :unfollow_my_space reverses the verb :follow_my_space). Every interaction that reverses another increments the 'decreases' field by one and decreases 'score' by 1. 
+
+=== Migration
+
+class CreateBonds < ActiveRecord::Migration
+  def change
+    create_table :bonds do |t|
+      t.string :actor_id
+      t.string :actor_type
+      t.string :act_object_id
+      t.string :act_object_type
+      t.string :act_target_id
+      t.string :act_target_type
+      t.string :verb
+      t.string :name
+
+      t.integer :score,     :default => 0
+      t.integer :increases, :default => 0
+      t.integer :decreases, :default => 0
+
+      t.text :options
+
+      t.timestamps
+    end
+
+    add_index "bonds", ["verb", "actor_id", "actor_type", "act_object_id", "act_object_type", "act_target_id", "act_target_type"  ],                             :name => "index_bonds_on_all_fields"
+    add_index "bonds", ["verb"],                             :name => "index_bonds_on_verb"
+    add_index "bonds", ["actor_id", "actor_type"],           :name => "index_bonds_on_actor_id"
+    add_index "bonds", ["act_object_id", "act_object_type"], :name => "index_bonds_on_act_object_id"
+    add_index "bonds", ["act_target_id", "act_target_type"], :name => "index_bonds_on_act_target_id"
+
+  end
+end
+
+=== Setup Interactions
+
+Include the Interplay module in a class.
+
+  class Space
+     include Mongoid::Document
+
+     include Interplay::Interactor
+
+  end
+
+  class User < ActiveRecord::Base
+
+
+     include Interplay::Interactor
+
+  end
+
+
+=== Publishing Interaction
+
+In your controller or background worker:
+
+  space.perform_interaction(:follow_my_space, :act_target => other_space)
+  
+This will publish the interactions to the mongoid objects returned by the #followers method in the Actor.
+
+To add extra options just add them. The extra options must be defined in the DSL:
+
+  space.perform_interaction(:send_email, :act_target => other_space, :from_email => 'test@example.com', :to_email => 'test2@example.com')
+
+== Compatibility
+
+Interplay is developed against Ruby 1.9.3, Mongoid 2 and ActiveRecord 3.2.
+
+== TODO
+
+* Write more documentation, YARD
+* Write more tests
+* Benchmarks
+
+= License
+
+Copyright © 2011 Andreas Saebjoernsen and Christos Pappas 
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+= Credits
+
+Andreas Saebjoernsen: andreas at digitalpalywright dot com
+
+This code is heavily influenced by streama by Christopher Pappas.
+
+Christos Pappas: christos dot pappas at gmail dot com
+

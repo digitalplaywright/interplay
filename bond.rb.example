@@ -1,0 +1,30 @@
+class Bond < ActiveRecord::Base
+  include Interplay::Connector
+
+  store :options
+
+  interaction :event_activate do
+    actor      :Space
+    act_object :Event
+    act_target :Space
+  end
+
+  interaction :send_email do
+    actor      :Space
+    act_target :Space
+    option     :from_email
+    option     :to_email
+  end
+
+  interaction :follow_my_space do
+    actor      :Space
+    act_target :Space
+  end
+
+  interaction :unfollow_my_space do
+    actor      :Space
+    act_target :Space
+    reverses   :follow_my_space
+  end
+
+end
